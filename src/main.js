@@ -404,6 +404,6 @@ function tick() {
   renderer.render(scene, camera);
   window.__swat.calls = renderer.info.render.calls; window.__swat.tris = renderer.info.render.triangles; window.__swat.fps = fps;
 }
-window.__swat = { game, camera, act, setScreen, renderer, scene, burst, shock, popup, slots, panel, pauseTile, field, root, THREE, get buttons() { return buttons; }, get screen() { return screen; } };
+window.__swat = { game, camera, act, setScreen, renderer, scene, burst, shock, popup, slots, panel, pauseTile, field, root, THREE: { Vector3: THREE.Vector3, Object3D: THREE.Object3D }, get buttons() { return buttons; }, get screen() { return screen; } };
 setScreen('menu');
 renderer.setAnimationLoop(tick);
