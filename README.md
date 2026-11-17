@@ -16,13 +16,16 @@ A glowing swarm of procedural crystal creatures (glowmoths, urchins, lumens) dri
 | Fire | **Pinch** thumb + index on your **fire hand** (right by default), or make a finger-gun and **drop your thumb**. Hold to auto-fire |
 | Swat a diver | Touch / slap the hovering creature with any part of either hand (index tip or palm) |
 | Pause | Hold either **palm up**, fingers open, for ~0.6 s — or poke the floating ❚❚ tile |
-| Menus | **Poke** the floating panel buttons with a fingertip (Start, Resume, Restart, Move hand: Left/Right, Sound, Exit XR) |
+| Menus | **Poke** the floating panel buttons with a fingertip (Start, Resume, Restart, Move: Left/Right, Sound, Desk snap, Exit XR) |
 
 Swap which hand steers with **MOVE HAND** on any menu panel (saved for next time).
 
 ### Fallbacks
 * **Controllers:** move the steering controller left/right, trigger on the other fires, poke panels with the controller tip, Y/B pauses.
 * **Desktop:** mouse or ←/→ steer, click or Space fires, click a diver to swat it, P pauses, Enter starts.
+
+### Passthrough desk snap
+In AR, SWATFALL uses WebXR hit-test to look for a real tabletop in front of you (a cyan ring marks it on the menu). With **DESK SNAP: ON**, pressing Start rests the emitter rail on your actual desk, so the swarm hovers over your table and divers launch off it. With no desk found, the field floats at a comfortable default height. Pressing Start also recentres the play space on your head.
 
 ## Rules
 * Formation creatures: lumen 40, urchin 20, glowmoth 10. Shooting a falling spark: 5.

@@ -7,7 +7,9 @@ import * as A from './art.js';
 const FONT = 'system-ui, Roboto, "Segoe UI", Arial, sans-serif';
 const KIND_COLOR = { moth: new THREE.Color('#ffb347'), urchin: new THREE.Color('#ff4fd8'), lumen: new THREE.Color('#4dffc3') };
 const CYAN = new THREE.Color('#5fe4ff'), RED = new THREE.Color('#ff3b5c'), WHITE = new THREE.Color('#ffffff');
-const settings = { moveSide: localStorage.getItem('swatfall.move') || 'left', sound: localStorage.getItem('swatfall.sound') !== 'off' };
+const settings = { moveSide: localStorage.getItem('swatfall.move') || 'left', sound: localStorage.getItem('swatfall.sound') !== 'off', desk: localStorage.getItem('swatfall.desk') !== 'off' };
+
+let hitSource = null, deskSeen = 0, deskSnapped = false; const deskPt = new THREE.Vector3();
 
 // ---------- renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -33,7 +35,7 @@ sky.add(new THREE.Mesh(new THREE.SphereGeometry(20, 24, 12), new THREE.ShaderMat
 
 const root = new THREE.Group(); scene.add(root);
 // Play field: a tilted glass slab in front of a seated player. y runs up/away, z points back at the player.
-const field = new THREE.Group(); field.position.set(0, -0.30, -0.55); field.rotation.x = THREE.MathUtils.degToRad(-55); root.add(field);
+const FIELD_Y = -0.30; const field = new THREE.Group(); field.position.set(0, FIELD_Y, -0.55); field.rotation.x = THREE.MathUtils.degToRad(-55); root.add(field);
 
 const glow = A.glowTex(), ring = A.ringTex();
 { // plate + grid + glowing rails
@@ -117,11 +119,15 @@ const PW = 0.40, PH = 0.31;
 let screen = 'menu', hoverId = null;
 function buttonsFor(s) {
   const B = (id, label, x, y, w = 0.16, h = 0.045, big = false) => ({ id, label, x, y, w, h, big });
-  const swap = B('swap', `MOVE HAND: ${settings.moveSide.toUpperCase()}`, 0.095, -0.07);
-  if (s === 'menu') return [B('start', 'START', 0, -0.005, 0.2, 0.055, true), swap, B('sound', `SOUND: ${settings.sound ? 'ON' : 'OFF'}`, -0.095, -0.07)];
+  const ar = renderer.xr.isPresenting && hitSource;
+  const row = ar ? [-0.128, 0, 0.128] : [-0.095, 0.095, 0], bw = ar ? 0.118 : 0.16;
+  const swap = B('swap', `MOVE: ${settings.moveSide.toUpperCase()}`, row[1], -0.07, bw);
+  const snd = B('sound', `SOUND: ${settings.sound ? 'ON' : 'OFF'}`, row[0], -0.07, bw);
+  const desk = ar ? [B('desk', `DESK SNAP: ${settings.desk ? 'ON' : 'OFF'}`, row[2], -0.07, bw)] : [];
+  if (s === 'menu') return [B('start', 'START', 0, -0.005, 0.2, 0.055, true), swap, snd, ...desk];
   if (s === 'paused') return [B('resume', 'RESUME', -0.095, -0.005, 0.16, 0.05, true), B('restart', 'RESTART', 0.095, -0.005), swap,
-    renderer.xr.isPresenting ? B('exit', 'EXIT XR', -0.095, -0.07) : B('sound', `SOUND: ${settings.sound ? 'ON' : 'OFF'}`, -0.095, -0.07)];
-  if (s === 'over') return [B('start', 'PLAY AGAIN', 0, -0.005, 0.2, 0.055, true), swap, B('sound', `SOUND: ${settings.sound ? 'ON' : 'OFF'}`, -0.095, -0.07)];
+    renderer.xr.isPresenting ? B('exit', 'EXIT XR', row[0], -0.07, bw) : snd, ...desk];
+  if (s === 'over') return [B('start', 'PLAY AGAIN', 0, -0.005, 0.2, 0.055, true), swap, snd, ...desk];
   return [];
 }
 let buttons = buttonsFor('menu');
@@ -144,7 +150,7 @@ const panel = A.canvasPanel(PW, PH, 1024, (x, w, h) => {
   for (const b of buttons) {
     const hov = hoverId === b.id; x.fillStyle = b.big ? (hov ? '#ffcf6b' : '#ff9d3d') : (hov ? '#5fe4ff' : 'rgba(95,228,255,0.18)');
     A.roundRect(x, X(b.x - b.w / 2), Y(b.y + b.h / 2), b.w * s, b.h * s, 18); x.fill(); x.lineWidth = 3; x.strokeStyle = b.big ? '#ffe2a8' : '#5fe4ff'; x.stroke();
-    x.font = `800 ${b.big ? 40 : 26}px ${FONT}`; x.fillStyle = b.big || hov ? '#140a00' : '#e8fbff'; x.fillText(b.label, X(b.x), Y(b.y) + 2);
+    x.font = `800 ${b.big ? 40 : b.w < 0.13 ? 21 : 26}px ${FONT}`; x.fillStyle = b.big || hov ? '#140a00' : '#e8fbff'; x.fillText(b.label, X(b.x), Y(b.y) + 2);
   }
 });
 panel.mesh.position.set(0, -0.15, -0.40); panel.mesh.rotation.x = -0.45; root.add(panel.mesh); panel.redraw();
@@ -159,7 +165,7 @@ const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.3, 8), ne
 const knob = new THREE.Mesh(new THREE.SphereGeometry(0.012, 16, 10), new THREE.MeshStandardMaterial({ color: 0xffb347, emissive: 0xff8a3d, emissiveIntensity: 0.8 })); railGroup.add(knob);
 const firePad = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.0025, 6, 32), new THREE.MeshBasicMaterial({ color: 0x5fe4ff, toneMapped: false })); firePad.rotation.x = -Math.PI / 2; root.add(firePad);
 const RAIL_HALF = 0.15;
-function placeRails() { const s = settings.moveSide === 'left' ? -1 : 1; railGroup.position.set(0.2 * s, -0.38, -0.34); firePad.position.set(-0.2 * s, -0.38, -0.34); }
+function placeRails() { const s = settings.moveSide === 'left' ? -1 : 1; const y = deskSnapped ? field.position.y + 0.04 : -0.38; railGroup.position.set(0.2 * s, y, -0.34); firePad.position.set(-0.2 * s, y, -0.34); }
 placeRails();
 
 // ---------- hands / controllers ----------
@@ -210,6 +216,7 @@ function act(id) {
   else if (id === 'pause') pause();
   else if (id === 'swap') { settings.moveSide = settings.moveSide === 'left' ? 'right' : 'left'; localStorage.setItem('swatfall.move', settings.moveSide); placeRails(); buttons = buttonsFor(screen); panel.redraw(); }
   else if (id === 'sound') { settings.sound = !settings.sound; sound.on = settings.sound; localStorage.setItem('swatfall.sound', settings.sound ? 'on' : 'off'); buttons = buttonsFor(screen); panel.redraw(); }
+  else if (id === 'desk') { settings.desk = !settings.desk; localStorage.setItem('swatfall.desk', settings.desk ? 'on' : 'off'); buttons = buttonsFor(screen); panel.redraw(); }
   else if (id === 'exit') renderer.xr.getSession()?.end();
 }
 // Re-anchor the whole play space to the player's current head position + facing (XR only), so the
@@ -218,6 +225,11 @@ function recenter() {
   if (!renderer.xr.isPresenting) return;
   const cam = renderer.xr.getCamera(); cam.getWorldPosition(_v2); cam.getWorldDirection(_v); 
   root.position.copy(_v2); root.rotation.set(0, Math.atan2(-_v.x, -_v.z), 0); root.updateMatrixWorld(true);
+  // Desk snap: if passthrough hit-test found a real tabletop in front of and below the player, rest the
+  // emitter rail on it so the swarm launches off the actual desk. Otherwise keep the default height.
+  field.position.y = FIELD_Y; deskSnapped = false;
+  if (settings.desk && deskSeen > 0) { const dy = deskPt.y - _v2.y; if (dy > -0.6 && dy < -0.18) { field.position.y = dy + 0.02; deskSnapped = true; } }
+  placeRails();
 }
 function pause() { if (game.state !== 'play') return; game.state = 'paused'; setScreen('paused'); }
 
@@ -252,13 +264,34 @@ async function addXR(mode, label) {
   b.disabled = false;
   b.onclick = async () => {
     sound.unlock();
-    try { const session = await navigator.xr.requestSession(mode, { optionalFeatures: ['hand-tracking', 'local-floor'] }); xrMode = mode; await renderer.xr.setSession(session); }
+    try { const session = await navigator.xr.requestSession(mode, { optionalFeatures: ['hand-tracking', 'hit-test'] }); xrMode = mode; await renderer.xr.setSession(session); }
     catch (err) { document.getElementById('stat').textContent = 'XR error: ' + err.message; }
   };
 }
 addXR('immersive-ar', 'Enter AR (passthrough)'); addXR('immersive-vr', 'Enter VR');
 renderer.xr.addEventListener('sessionstart', () => { sky.visible = xrMode !== 'immersive-ar'; document.getElementById('overlay').style.display = 'none'; if (game.state === 'play') pause(); });
 renderer.xr.addEventListener('sessionend', () => { root.position.set(0, 0, 0); root.rotation.set(0, 0, 0); sky.visible = true; document.getElementById('overlay').style.display = ''; for (const s of slots) s.src = null; if (game.state === 'play') pause(); });
+
+// ---------- passthrough desk detection (WebXR hit-test, AR only, optional) ----------
+const deskRing = new THREE.Mesh(new THREE.RingGeometry(0.05, 0.058, 40), new THREE.MeshBasicMaterial({ color: 0x5fe4ff, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+deskRing.rotation.x = -Math.PI / 2; deskRing.visible = false; scene.add(deskRing);
+renderer.xr.addEventListener('sessionstart', async () => {
+  const session = renderer.xr.getSession(); if (xrMode !== 'immersive-ar' || !session.requestHitTestSource) return;
+  try { const viewer = await session.requestReferenceSpace('viewer'); hitSource = await session.requestHitTestSource({ space: viewer }); buttons = buttonsFor(screen); panel.redraw(); }
+  catch (e) { hitSource = null; }
+});
+renderer.xr.addEventListener('sessionend', () => { hitSource = null; deskSeen = 0; deskRing.visible = false; field.position.y = FIELD_Y; deskSnapped = false; placeRails(); });
+function updateDesk(dt) {
+  deskSeen = Math.max(0, deskSeen - dt); const frame = renderer.xr.getFrame?.();
+  if (hitSource && frame) {
+    const r = frame.getHitTestResults(hitSource); const pose = r.length ? r[0].getPose(renderer.xr.getReferenceSpace()) : null;
+    if (pose) { const o = pose.transform.position, q = pose.transform.orientation; _q.set(q.x, q.y, q.z, q.w); _v.set(0, 1, 0).applyQuaternion(_q);
+      renderer.xr.getCamera().getWorldPosition(_v2); const dy = o.y - _v2.y, dh = Math.hypot(o.x - _v2.x, o.z - _v2.z);
+      if (_v.y > 0.9 && dy > -0.6 && dy < -0.18 && dh < 1.2) { deskPt.set(o.x, o.y, o.z); deskSeen = 1.5; } }
+  }
+  deskRing.visible = settings.desk && deskSeen > 0 && screen !== 'play';
+  if (deskRing.visible) { deskRing.position.copy(deskPt).y += 0.003; deskRing.scale.setScalar(1 + 0.1 * Math.sin(clock.elapsedTime * 4)); }
+}
 
 // ---------- events -> fx/audio ----------
 function handleEvents() {
@@ -294,6 +327,7 @@ function tick() {
   fpsT += dt; fpsN++; if (fpsT > 1) { fps = Math.round(fpsN / fpsT); fpsT = fpsN = 0; }
   field.updateMatrixWorld(); fieldInv.copy(field.matrixWorld).invert();
   const xr = renderer.xr.isPresenting;
+  if (xr) updateDesk(dt);
   // --- read hands
   let jn = 0, moveSlot = null, fireSlot = null, dwellShown = false;
   for (const s of slots) {
