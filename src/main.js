@@ -94,7 +94,7 @@ function burst(x, y, z, color, n = 22, speed = 0.35, life = 0.7) {
 function shock(x, y, z, color, size = 0.12, life = 0.45) { const r = rings[ringI = (ringI + 1) % RINGS]; r.life = r.max = life; r.size = size; r.p.set(x, y, z); r.c.copy(color); }
 const popups = Array.from({ length: 4 }, () => {
   const pnl = A.canvasPanel(0.24, 0.05, 512, (x, w, h, text, col) => { x.font = `800 ${h * 0.6}px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.shadowColor = col; x.shadowBlur = 18; x.fillStyle = col; x.fillText(text, w / 2, h / 2); x.shadowBlur = 0; x.fillStyle = '#fff'; x.globalAlpha = 0.6; x.fillText(text, w / 2, h / 2); });
-  pnl.mesh.visible = false; root.add(pnl.mesh); return { ...pnl, life: 0, p: new THREE.Vector3() };
+  pnl.mesh.visible = false; scene.add(pnl.mesh); return { ...pnl, life: 0, p: new THREE.Vector3() };
 });
 let popI = 0;
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _m = new THREE.Matrix4(), _s = new THREE.Vector3(), _c = new THREE.Color(), _e = new THREE.Euler();
@@ -205,12 +205,19 @@ const unlock = () => sound.unlock(); addEventListener('pointerdown', unlock); ad
 // ---------- actions ----------
 function act(id) {
   sound.click();
-  if (id === 'start' || id === 'restart') { game.reset(); setScreen('play'); }
+  if (id === 'start' || id === 'restart') { recenter(); game.reset(); setScreen('play'); }
   else if (id === 'resume') { game.state = 'play'; setScreen('play'); }
   else if (id === 'pause') pause();
   else if (id === 'swap') { settings.moveSide = settings.moveSide === 'left' ? 'right' : 'left'; localStorage.setItem('swatfall.move', settings.moveSide); placeRails(); buttons = buttonsFor(screen); panel.redraw(); }
   else if (id === 'sound') { settings.sound = !settings.sound; sound.on = settings.sound; localStorage.setItem('swatfall.sound', settings.sound ? 'on' : 'off'); buttons = buttonsFor(screen); panel.redraw(); }
   else if (id === 'exit') renderer.xr.getSession()?.end();
+}
+// Re-anchor the whole play space to the player's current head position + facing (XR only), so the
+// field always sits ~30 cm below the eyes and ~55 cm ahead however they are seated.
+function recenter() {
+  if (!renderer.xr.isPresenting) return;
+  const cam = renderer.xr.getCamera(); cam.getWorldPosition(_v2); cam.getWorldDirection(_v); 
+  root.position.copy(_v2); root.rotation.set(0, Math.atan2(-_v.x, -_v.z), 0); root.updateMatrixWorld(true);
 }
 function pause() { if (game.state !== 'play') return; game.state = 'paused'; setScreen('paused'); }
 
@@ -251,7 +258,7 @@ async function addXR(mode, label) {
 }
 addXR('immersive-ar', 'Enter AR (passthrough)'); addXR('immersive-vr', 'Enter VR');
 renderer.xr.addEventListener('sessionstart', () => { sky.visible = xrMode !== 'immersive-ar'; document.getElementById('overlay').style.display = 'none'; if (game.state === 'play') pause(); });
-renderer.xr.addEventListener('sessionend', () => { sky.visible = true; document.getElementById('overlay').style.display = ''; for (const s of slots) s.src = null; if (game.state === 'play') pause(); });
+renderer.xr.addEventListener('sessionend', () => { root.position.set(0, 0, 0); root.rotation.set(0, 0, 0); sky.visible = true; document.getElementById('overlay').style.display = ''; for (const s of slots) s.src = null; if (game.state === 'play') pause(); });
 
 // ---------- events -> fx/audio ----------
 function handleEvents() {
@@ -312,7 +319,7 @@ function tick() {
   // --- gameplay input
   if (game.state === 'play') {
     let target = game.cannonX;
-    if (moveSlot) { const ux = (moveSlot.palm.x - railGroup.position.x) / RAIL_HALF; target = THREE.MathUtils.clamp(ux, -1, 1) * (HALF_W - 0.03); }
+    if (moveSlot) { root.worldToLocal(_v.copy(moveSlot.palm)); const ux = (_v.x - railGroup.position.x) / RAIL_HALF; target = THREE.MathUtils.clamp(ux, -1, 1) * (HALF_W - 0.03); }
     else if (!xr) { if (keys.ArrowLeft || keys.KeyA) mouseX = null, target -= 0.6 * dt; if (keys.ArrowRight || keys.KeyD) mouseX = null, target += 0.6 * dt; if (mouseX !== null) target = THREE.MathUtils.clamp(mouseX * 1.25, -1, 1) * (HALF_W - 0.03); }
     game.setCannon(game.cannonX + (target - game.cannonX) * Math.min(1, dt * 16));
     if ((fireSlot && fireSlot.trig) || (!xr && (keys.Space || deskFire))) game.fire();
@@ -363,6 +370,6 @@ function tick() {
   renderer.render(scene, camera);
   window.__swat.calls = renderer.info.render.calls; window.__swat.tris = renderer.info.render.triangles; window.__swat.fps = fps;
 }
-window.__swat = { game, camera, act, setScreen, renderer, scene, burst, shock, popup, get screen() { return screen; } };
+window.__swat = { game, camera, act, setScreen, renderer, scene, burst, shock, popup, slots, panel, pauseTile, field, root, THREE, get buttons() { return buttons; }, get screen() { return screen; } };
 setScreen('menu');
 renderer.setAnimationLoop(tick);
