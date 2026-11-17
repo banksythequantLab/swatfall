@@ -93,7 +93,7 @@ function burst(x, y, z, color, n = 22, speed = 0.35, life = 0.7) {
 }
 function shock(x, y, z, color, size = 0.12, life = 0.45) { const r = rings[ringI = (ringI + 1) % RINGS]; r.life = r.max = life; r.size = size; r.p.set(x, y, z); r.c.copy(color); }
 const popups = Array.from({ length: 4 }, () => {
-  const pnl = A.canvasPanel(0.16, 0.05, 384, (x, w, h, text, col) => { x.font = `800 ${h * 0.72}px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.shadowColor = col; x.shadowBlur = 18; x.fillStyle = col; x.fillText(text, w / 2, h / 2); x.shadowBlur = 0; x.fillStyle = '#fff'; x.globalAlpha = 0.6; x.fillText(text, w / 2, h / 2); });
+  const pnl = A.canvasPanel(0.24, 0.05, 512, (x, w, h, text, col) => { x.font = `800 ${h * 0.6}px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.shadowColor = col; x.shadowBlur = 18; x.fillStyle = col; x.fillText(text, w / 2, h / 2); x.shadowBlur = 0; x.fillStyle = '#fff'; x.globalAlpha = 0.6; x.fillText(text, w / 2, h / 2); });
   pnl.mesh.visible = false; root.add(pnl.mesh); return { ...pnl, life: 0, p: new THREE.Vector3() };
 });
 let popI = 0;
@@ -113,15 +113,15 @@ const hud = A.canvasPanel(0.62, 0.15, 1024, (x, w, h) => {
 hud.mesh.position.set(0, 0.075, -1.02); root.add(hud.mesh); let hudDirty = true;
 
 // ---------- poke panels ----------
-const PW = 0.40, PH = 0.27;
+const PW = 0.40, PH = 0.31;
 let screen = 'menu', hoverId = null;
 function buttonsFor(s) {
   const B = (id, label, x, y, w = 0.16, h = 0.045, big = false) => ({ id, label, x, y, w, h, big });
-  const swap = B('swap', `MOVE HAND: ${settings.moveSide.toUpperCase()}`, 0.095, -0.1);
-  if (s === 'menu') return [B('start', 'START', 0, -0.035, 0.2, 0.055, true), swap, B('sound', `SOUND: ${settings.sound ? 'ON' : 'OFF'}`, -0.095, -0.1)];
-  if (s === 'paused') return [B('resume', 'RESUME', -0.095, -0.035, 0.16, 0.05, true), B('restart', 'RESTART', 0.095, -0.035), swap,
-    renderer.xr.isPresenting ? B('exit', 'EXIT XR', -0.095, -0.1) : B('sound', `SOUND: ${settings.sound ? 'ON' : 'OFF'}`, -0.095, -0.1)];
-  if (s === 'over') return [B('start', 'PLAY AGAIN', 0, -0.035, 0.2, 0.055, true), swap, B('sound', `SOUND: ${settings.sound ? 'ON' : 'OFF'}`, -0.095, -0.1)];
+  const swap = B('swap', `MOVE HAND: ${settings.moveSide.toUpperCase()}`, 0.095, -0.07);
+  if (s === 'menu') return [B('start', 'START', 0, -0.005, 0.2, 0.055, true), swap, B('sound', `SOUND: ${settings.sound ? 'ON' : 'OFF'}`, -0.095, -0.07)];
+  if (s === 'paused') return [B('resume', 'RESUME', -0.095, -0.005, 0.16, 0.05, true), B('restart', 'RESTART', 0.095, -0.005), swap,
+    renderer.xr.isPresenting ? B('exit', 'EXIT XR', -0.095, -0.07) : B('sound', `SOUND: ${settings.sound ? 'ON' : 'OFF'}`, -0.095, -0.07)];
+  if (s === 'over') return [B('start', 'PLAY AGAIN', 0, -0.005, 0.2, 0.055, true), swap, B('sound', `SOUND: ${settings.sound ? 'ON' : 'OFF'}`, -0.095, -0.07)];
   return [];
 }
 let buttons = buttonsFor('menu');
@@ -130,12 +130,17 @@ const panel = A.canvasPanel(PW, PH, 1024, (x, w, h) => {
   x.fillStyle = 'rgba(6,10,26,0.86)'; A.roundRect(x, 4, 4, w - 8, h - 8, 36); x.fill(); x.lineWidth = 4; x.strokeStyle = 'rgba(95,228,255,0.7)'; x.stroke();
   x.textAlign = 'center'; x.textBaseline = 'middle';
   const title = screen === 'menu' ? 'SWATFALL' : screen === 'paused' ? 'PAUSED' : 'THE SWARM GOT THROUGH';
-  x.font = `800 ${screen === 'over' ? 52 : 86}px ${FONT}`; x.shadowColor = '#ff8a3d'; x.shadowBlur = 20; x.fillStyle = '#ffcf6b'; x.fillText(title, w / 2, Y(0.1)); x.shadowBlur = 0;
+  x.font = `800 ${screen === 'over' ? 52 : 86}px ${FONT}`; x.shadowColor = '#ff8a3d'; x.shadowBlur = 20; x.fillStyle = '#ffcf6b'; x.fillText(title, w / 2, Y(0.105)); x.shadowBlur = 0;
   x.font = `500 26px ${FONT}`; x.fillStyle = '#cfe6ff';
   const mv = settings.moveSide === 'left' ? 'LEFT' : 'RIGHT', fr = settings.moveSide === 'left' ? 'RIGHT' : 'LEFT';
   const sub = screen === 'over' ? `Score ${game.score}  ·  Wave ${game.wave}  ·  Best ${game.best}` : screen === 'paused' ? 'Poke a button with your fingertip' :
     `${mv} hand slides · ${fr} hand pinches to fire · swat divers · palm up pauses`;
-  x.fillText(sub, w / 2, Y(0.055));
+  x.fillText(sub, w / 2, Y(0.058));
+  if (screen === 'menu') { // three gesture "cards" under the buttons
+    const cards = [[`${mv} HAND`, '◀  SLIDE  ▶', '#ffb347'], [`${fr} HAND`, 'PINCH = FIRE', '#5fe4ff'], ['EITHER HAND', 'SWAT DIVERS', '#ff5c7a']];
+    cards.forEach(([a, b, c], i) => { const cx = X(-0.125 + i * 0.125), cy = Y(-0.122);
+      x.font = `700 19px ${FONT}`; x.fillStyle = c; x.globalAlpha = 0.75; x.fillText(a, cx, cy - 14); x.globalAlpha = 1; x.font = `800 22px ${FONT}`; x.fillText(b, cx, cy + 12); });
+  }
   for (const b of buttons) {
     const hov = hoverId === b.id; x.fillStyle = b.big ? (hov ? '#ffcf6b' : '#ff9d3d') : (hov ? '#5fe4ff' : 'rgba(95,228,255,0.18)');
     A.roundRect(x, X(b.x - b.w / 2), Y(b.y + b.h / 2), b.w * s, b.h * s, 18); x.fill(); x.lineWidth = 3; x.strokeStyle = b.big ? '#ffe2a8' : '#5fe4ff'; x.stroke();
@@ -189,6 +194,9 @@ function readSlot(s) {
     const b = src.gamepad.buttons; s.trig = !!b[0]?.pressed; s.palmUp = !!(b[5]?.pressed || b[4]?.pressed);
   }
 }
+
+const dwellRing = new THREE.Mesh(new THREE.RingGeometry(0.03, 0.036, 32, 1, 0, Math.PI * 2), new THREE.MeshBasicMaterial({ color: 0xffcf6b, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+dwellRing.visible = false; scene.add(dwellRing);
 
 // ---------- audio ----------
 const sound = new Sound(); sound.on = settings.sound;
@@ -254,7 +262,7 @@ function handleEvents() {
       case 'kill': burst(e.x, e.y, e.z, col, 22); shock(e.x, e.y, e.z, col, 0.09); sound.pop(e.kind); hudDirty = true; break;
       case 'swat': burst(e.x, e.y, e.z, col, 48, 0.6, 0.9); shock(e.x, e.y, e.z, WHITE, 0.22, 0.55); sound.swat(); popup(`SWAT! +${e.v}`, '#ffcf6b', e.x, e.y, e.z + 0.03); hudDirty = true; break;
       case 'hurt': burst(e.x, 0.01, 0.01, RED, 50, 0.5, 0.9); shock(e.x, 0.01, 0.01, RED, 0.25, 0.6); sound.hurt(); flashT = 0.5; hudDirty = true; break;
-      case 'wave': banner = `WAVE ${e.v}`; bannerT = 1.8; sound.wave(); hudDirty = true; break;
+      case 'wave': banner = e.v === 1 ? 'WAVE 1 · PINCH TO FIRE' : `WAVE ${e.v}`; bannerT = 1.8; sound.wave(); hudDirty = true; break;
       case 'clear': shock(0, TOP - 0.1, 0, CYAN, 0.6, 0.8); break;
       case 'dive': sound.dive(); break;
       case 'hover': popup('SWAT IT!', '#ff5c7a', e.x, e.y + 0.04, e.z); break;
@@ -280,7 +288,7 @@ function tick() {
   field.updateMatrixWorld(); fieldInv.copy(field.matrixWorld).invert();
   const xr = renderer.xr.isPresenting;
   // --- read hands
-  let jn = 0, moveSlot = null, fireSlot = null;
+  let jn = 0, moveSlot = null, fireSlot = null, dwellShown = false;
   for (const s of slots) {
     readSlot(s); if (!s.ok) continue;
     const role = s.src.handedness === settings.moveSide ? 'move' : 'fire';
@@ -297,7 +305,9 @@ function tick() {
     const pokeT = pauseTile.mesh.visible ? s.pokers.pause.update(pauseTile.mesh.worldToLocal(_v.copy(s.tip)), PAUSE_BTN, dt) : s.pokers.pause.update(null, PAUSE_BTN, dt);
     if (pokeT) act(pokeT);
     if (s.dwell.update(s.palmUp && game.state === 'play', dt)) pause();
+    if (s.src.hand && s.dwell.progress > 0.15) { dwellShown = true; dwellRing.visible = true; dwellRing.position.copy(s.palm).y += 0.06; dwellRing.rotation.set(-Math.PI / 2, 0, 0); dwellRing.scale.setScalar(0.4 + 0.6 * s.dwell.progress); dwellRing.material.opacity = s.dwell.progress; }
   }
+  if (!dwellShown) dwellRing.visible = false;
   jointMesh.count = jn; jointMesh.instanceMatrix.needsUpdate = true; if (jointMesh.instanceColor) jointMesh.instanceColor.needsUpdate = true;
   // --- gameplay input
   if (game.state === 'play') {
