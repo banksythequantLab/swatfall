@@ -1,0 +1,10 @@
+html,body{margin:0;height:100%;overflow:hidden;background:#04050c;color:#dfe9ff;font-family:system-ui,Roboto,Arial,sans-serif}
+canvas{display:block}
+#overlay{position:fixed;left:16px;top:12px;max-width:420px;pointer-events:auto;text-shadow:0 1px 3px #000}
+h1{margin:0;font-size:34px;letter-spacing:.12em;color:#5fe4ff;font-weight:800}
+h1 span{color:#ffb347}
+.tag{margin:2px 0 10px;opacity:.85}
+#xr button{margin:0 8px 8px 0;padding:10px 16px;border-radius:10px;border:1px solid #5fe4ff;background:#0b1a33cc;color:#dfe9ff;font-size:15px;cursor:pointer}
+#xr button:disabled{opacity:.45;cursor:default}
+details{background:#0008;border-radius:8px;padding:6px 10px;font-size:13px;line-height:1.4}
+#stat{font-size:12px;opacity:.6;margin-top:6px}
